@@ -1,0 +1,39 @@
+FROM python:3.10-bookworm
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Install lib required for pyaudio
+RUN apt update && apt install -y portaudio19-dev && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Update pip to support for whl.metadata -> less downloading
+RUN pip install --no-cache-dir -U "pip>=24"
+
+# Create log directory
+RUN mkdir -p /var/log/whisper
+
+# Create a working directory
+RUN mkdir -p /app
+WORKDIR /app
+
+# Install pytorch, but without the nvidia-libs that are only necessary for gpu
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+
+# Install the requirements for running the whisper-live server
+COPY requirements/server.txt /app/
+RUN pip install --no-cache-dir -r server.txt && rm server.txt
+
+# Copy application files
+COPY whisper_live /app/whisper_live
+COPY run_server.py /app
+
+# Set environment variables for port and model path
+ENV PORT=30000
+ENV MODEL="model/base"
+ENV NB_PROC=5
+ENV DEBUG="warning"
+ENV CONTAINER=1
+ENV MAX_CLIENT=4
+ENV MAX_TIME=600
+
+# Set the default command to pass arguments to the script
+CMD ["sh", "-c", "python run_server.py --port $PORT --backend faster_whisper --omp_num_threads $NB_PROC -fw $MODEL -d $DEBUG -c $CONTAINER -mc $MAX_CLIENT -mt $MAX_TIME"]

@@ -1,0 +1,4 @@
+*.tar
+_env/
+_env2/
+*/__pycache__/
